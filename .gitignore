@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 datagen/output/
 *.pub
+demo_script.md
