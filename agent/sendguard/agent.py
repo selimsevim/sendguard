@@ -13,7 +13,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from google.adk.agents import Agent  # noqa: E402
 
-from .tools import bigquery_tools, sfmc_tools  # noqa: E402
+from .tools import activations_tools, bigquery_tools, sfmc_tools  # noqa: E402
 from .tools.fivetran_mcp import make_fivetran_toolset  # noqa: E402
 
 MODEL = os.getenv("SENDGUARD_MODEL", "gemini-3.1-pro-preview")
@@ -40,6 +40,10 @@ ENVIRONMENT FACTS (use these, do not ask for them):
   always filter WHERE NOT _fivetran_deleted when counting synced DE tables.
 - Audience DE external key in SFMC: {AUDIENCE_DE_KEY or "(ask the user)"}
 - Activations (reverse ETL) sync id: {os.getenv("FIVETRAN_ACTIVATION_SYNC_ID") or "(discover via list_activation_syncs)"}
+- The repaired audience lands in the SFMC DE named agent_results, external key
+  65A40FAF-63EE-42A8-B5CD-CA7CD55E7711 -- verify the repair landing with
+  get_de_row_count on THIS key (the original audience DE keeps its full row
+  count; the repair never edits it).
 - Freshness threshold: {FRESHNESS_THRESHOLD_MINUTES} minutes.
 
 MCP TOOL CALLING RULE: every Fivetran MCP tool requires a schema_file argument
@@ -75,7 +79,8 @@ VALIDATION DOCTRINE -- run these checks IN ORDER and narrate each one:
    a. Duplicates: COUNT(*) - COUNT(DISTINCT subscriber_key).
    b. Null/empty emails: COUNT where email IS NULL OR email = ''.
    c. Consent: audience members whose status is 'unsubscribed' in the
-      subscribers table (JOIN ext_subscribers USING subscriber_key).
+      subscribers table (JOIN ext_subscribers USING subscriber_key) -- count
+      DISTINCT subscriber_keys, so duplicates are not double-counted.
    Report exact counts and a few sample subscriber_keys for each problem.
 
 4. VERDICT.
@@ -89,8 +94,10 @@ VALIDATION DOCTRINE -- run these checks IN ORDER and narrate each one:
            CENSUS.agent_results (deduplicated, unsubscribed and null-email
            rows removed);
        (2) trigger_activation_sync -> pushes it back to SFMC;
-       (3) poll get_activation_sync_run until completed, then verify landing
-           with get_de_row_count on the repaired DE;
+       (3) call wait_for_activation_sync ONCE with the returned sync_run_id
+           (it blocks until the run finishes -- do NOT poll
+           get_activation_sync_run in a loop), then verify landing with
+           get_de_row_count on the agent_results DE key;
        (4) summarize what changed and ask for approval to release_send.
 
 HARD RULES:
@@ -123,5 +130,6 @@ root_agent = Agent(
         sfmc_tools.list_data_extensions,
         sfmc_tools.hold_send,
         sfmc_tools.release_send,
+        activations_tools.wait_for_activation_sync,
     ],
 )
