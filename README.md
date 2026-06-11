@@ -76,9 +76,8 @@ holding is always the safe direction.
 |---|---|
 | `agent/` | ADK agent: system prompt, BigQuery / SFMC tools, MCP toolset |
 | `fivetran-mcp/` | Fork of [fivetran/fivetran-mcp](https://github.com/fivetran/fivetran-mcp), extended with Activations tools |
-| `datagen/` | Synthetic data generator (1M subscribers, 1.5M events, 200k audience with planted defects) |
+| `datagen/` | Synthetic data generator (1M subscribers, 1.5M events, 200k audience seeded with realistic data-quality defects) |
 | `deploy/` | Dockerfile + Cloud Run deployment |
-| `demo_script.md` | 3-minute demo video flow |
 
 ## Why FTP beats API for SFMC bulk data
 
@@ -125,7 +124,7 @@ python3.12 -m venv .venv
 cp .env.example .env        # fill in every value
 gcloud auth application-default login
 
-# generate and import the demo data (SFMC import wizard, chunked CSVs)
+# generate and import the synthetic test data (SFMC import wizard, chunked CSVs)
 .venv/bin/python datagen/generate_data.py --events-chunk-size 200000 --outdir datagen/output
 
 # run the agent locally
@@ -134,7 +133,7 @@ gcloud auth application-default login
 
 SFMC import notes:
 - `campaign_audience` DE primary key MUST be `audience_row_id` (not
-  `subscriber_key`), or SFMC dedupes away the planted duplicate defect.
+  `subscriber_key`), or SFMC dedupes away the seeded duplicate rows on import.
 - `engagement_events` DE primary key MUST be `event_id` -- event facts
   legitimately repeat subscriber_keys.
 - Import part-files 002+ with action "Add and Update", never Overwrite.
