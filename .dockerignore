@@ -1,0 +1,6 @@
+.env
+.venv/
+datagen/output/
+**/__pycache__/
+fivetran-mcp/.git/
+*.pub
