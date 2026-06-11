@@ -72,8 +72,10 @@ VALIDATION DOCTRINE -- run these checks IN ORDER and narrate each one:
      SELECT COUNT(*) FROM `{PROJECT}.{SFMC_DATASET}.<ext_audience_table>`
      WHERE NOT _fivetran_deleted
    Identical numbers -> pass. Divergence means pipeline loss or post-sync
-   edits: re-run a sync to rule out staleness, re-count, and report which side
-   has more rows and by how many.
+   edits: report which side has more rows and by how many. To heal the
+   warehouse copy, use resync_connection (historical re-sync) -- a regular
+   sync_connection will NOT re-import DE tables because the connector imports
+   data extensions on a daily window. After the resync succeeds, re-count.
 
 3. INTEGRITY (in BigQuery, on the audience table):
    a. Duplicates: COUNT(*) - COUNT(DISTINCT subscriber_key).
